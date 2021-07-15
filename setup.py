@@ -5,6 +5,7 @@ install_requires = [
     'torchaudio==0.8.0',
     'numpy',
     'matplotlib',
+    'requests',
 ]
 
 setup(

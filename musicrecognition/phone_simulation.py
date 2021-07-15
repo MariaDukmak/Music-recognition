@@ -7,13 +7,24 @@ import torch
 import torchaudio
 import math
 import os
+import requests
 
 
 _SAMPLE_DIR = "_sample_data"
+os.makedirs(_SAMPLE_DIR, exist_ok=True)
 SAMPLE_RIR_URL = "https://pytorch-tutorial-assets.s3.amazonaws.com/VOiCES_devkit/distant-16k/room-response/rm1/impulse/Lab41-SRI-VOiCES-rm1-impulse-mc01-stu-clo.wav"
 SAMPLE_RIR_PATH = os.path.join(_SAMPLE_DIR, "rir.wav")
 SAMPLE_NOISE_URL = "https://pytorch-tutorial-assets.s3.amazonaws.com/VOiCES_devkit/distant-16k/distractors/rm1/babb/Lab41-SRI-VOiCES-rm1-babb-mc01-stu-clo.wav"
 SAMPLE_NOISE_PATH = os.path.join(_SAMPLE_DIR, "bg.wav")
+
+uri = [
+    (SAMPLE_RIR_URL, SAMPLE_RIR_PATH),
+    (SAMPLE_NOISE_URL, SAMPLE_NOISE_PATH),
+]
+for url, path in uri:
+    if not os.path.exists(path):
+        with open(path, 'wb') as file_:
+            file_.write(requests.get(url).content)
 
 
 def _get_sample(path, resample=None):
