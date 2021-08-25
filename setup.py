@@ -4,8 +4,7 @@ install_requires = [
     'torch==1.8.0',
     'torchaudio==0.8.0',
     'numpy',
-    'matplotlib',
-    'requests',
+    'torch-audiomentations',
 ]
 
 setup(
