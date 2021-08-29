@@ -111,8 +111,11 @@ class AudioDataloader:
         negatives = clip_length(self.next_negatives(anchor_paths), random_length)
 
         if self.spectrogram_func:
-            # Shape: [1, batch_size, height, width]
-            return torch.split(self.spectrogram_func(torch.stack([anchors, positives, negatives])), 1)
+            # Shape: [batch_size, height, width]
+            anchor_spec = self.spectrogram_func(anchors)
+            positive_spec, negative_spec = torch.split(self.spectrogram_func(torch.stack([positives, negatives])), 1)
+            return anchor_spec, positive_spec[0], negative_spec[0]
+
         else:
             # Shape: [batch_size, waveform_length]
             return anchors, positives, negatives
