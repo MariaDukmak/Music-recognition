@@ -4,6 +4,7 @@ import random
 
 from musicrecognition.augmentation import get_augmenter
 from musicrecognition.audio_dataloader import AudioDataloader
+from musicrecognition.spectrogram import get_spectrogram_func
 
 random.seed(42)
 DATA_ROOT = Path('../data')
@@ -27,12 +28,33 @@ def train():
     # Create augmentation function
     augmenter = get_augmenter(DATA_ROOT / 'background_noises')
 
+    # Create spectrogram function
+    spectrogram_func = get_spectrogram_func(SONG_SAMPLE_RATE)
+
     # Create the audio-data-loader
-    train_loader = AudioDataloader(train_paths, augmenter, BATCH_SIZE, MIN_AUDIO_LENGTH, MAX_AUDIO_LENGTH, SONG_SAMPLE_RATE)
+    train_loader = AudioDataloader(train_paths,
+                                   augmenter,
+                                   BATCH_SIZE,
+                                   MIN_AUDIO_LENGTH,
+                                   MAX_AUDIO_LENGTH,
+                                   SONG_SAMPLE_RATE,
+                                   spectrogram_func,
+                                   )
 
     # Training loop
     for anchors, positives, negatives in train_loader:
         print(anchors.shape, positives.shape, negatives.shape)
+
+        # latent_space_encoding_anchor = anchor_model(anchors)
+        # latent_space_encoding_positives = claasify_model(positives)
+        # latent_space_encoding_negatives = claasify_model(negatives)
+        #
+        # optimizer.zero_grad()
+        # loss = triplet_loss(latent_space_encoding_anchor, latent_space_encoding_positives, latent_space_encoding_negatives)
+        # loss.backward()
+        # optimizer.step()
+
+
         # ... training code needed ...
 
 
