@@ -6,6 +6,21 @@ import torchaudio
 import numpy as np
 
 
+def pad_waveform(waveform: torch.Tensor, wanted_length: int) -> torch.Tensor:
+    """Pad the waveform with zeros so it's at least the wanted_length."""
+    return torch.cat([waveform, torch.zeros(max(0, wanted_length-waveform.shape[0]))])
+
+
+def clip_length(waveforms: Sequence[torch.Tensor], wanted_length: int) -> torch.Tensor:
+    """Pad and clip the waveforms to wanted_length and stack them, clipping to a smaller length uses randomness."""
+    clipped = []
+    for waveform in waveforms:
+        padded = pad_waveform(waveform, wanted_length)
+        begin_index = np.random.randint(padded.shape[0] - wanted_length)
+        clipped.append(padded[begin_index:begin_index+wanted_length])
+    return torch.stack(clipped)
+
+
 class AudioDataloader:
     def __init__(self,
                  audio_paths: List[Union[Path, str]],
@@ -18,8 +33,8 @@ class AudioDataloader:
         self.audio_paths = audio_paths
         self.augmenter = augmenter
         self.batch_size = batch_size
-        self.audio_length_range = np.array([min_audio_length, max_audio_length])
         self.target_sample_rate = target_sample_rate
+        self.audio_length_range = np.array([min_audio_length, max_audio_length]) * self.target_sample_rate
         self.spectrogram_func = spectrogram_func
 
         self.anchor_index = 0
@@ -27,21 +42,23 @@ class AudioDataloader:
 
     def resample(self, waveform: torch.Tensor, sample_rate: int) -> torch.Tensor:
         """Resample (if needed) the given waveform to the standard sample-rate given at the constructor."""
-        waveform = waveform.mean(0, keepdim=True)
+        waveform = waveform.mean(0)
         if sample_rate == self.target_sample_rate:
             return waveform
         else:
             if sample_rate not in self.resample_kernels:
                 print(f"Encountered not before seen sample rate: {sample_rate}")
                 self.resample_kernels[sample_rate] = torchaudio.transforms.Resample(sample_rate, self.target_sample_rate)
-            return self.resample_kernels[sample_rate](waveform)
+            return self.resample_kernels[sample_rate](waveform.unsqueeze(0))[0]
 
-    def next_anchors(self) -> Tuple[List[torch.Tensor], List[str]]:
+    def next_anchors(self) -> Tuple[torch.Tensor, List[str]]:
         """Load the next batch of anchors, also return the picked file-paths so those can be avoided in next_negatives."""
         waveforms = []
         picked_paths = []
+        # Load until the batch is full
         while len(waveforms) < self.batch_size:
             audio_path = self.audio_paths[self.anchor_index]
+            # Try if this audio file can be loaded
             try:
                 waveforms.append(self.resample(*torchaudio.load(audio_path)))
                 picked_paths.append(audio_path)
@@ -50,7 +67,12 @@ class AudioDataloader:
                 self.audio_paths.pop(self.anchor_index)
             finally:
                 self.anchor_index = (self.anchor_index + 1) % len(self.audio_paths)
-        return waveforms, picked_paths
+
+        # Pad the waveforms the same length and stack them to get one tensor
+        max_length = max([waveform.shape[0] for waveform in waveforms])
+        waveforms_stacked = torch.stack([pad_waveform(waveform, max_length) for waveform in waveforms])
+
+        return waveforms_stacked, picked_paths
 
     def next_negatives(self, avoid_paths: Sequence[Union[Path, str]]) -> List[torch.Tensor]:
         """Load the next batch of negatives."""
@@ -67,45 +89,30 @@ class AudioDataloader:
                     break
         return waveforms
 
-    def clip_audio_samples(self, waveforms: Sequence[torch.Tensor], wanted_length: int = None) -> Tuple[List[torch.Tensor], int]:
-        """
-        Clip the waveforms so their lengths are the same,
-        if wanted_length is not specified, a random one will be picked in the range given at the constructor
-        """
-        min_waveform_length = min([waveform.shape[1] for waveform in waveforms])
-        if wanted_length is None:
-            rand_range = np.minimum(self.audio_length_range * self.target_sample_rate, [min_waveform_length] * 2)
-            wanted_length = np.random.randint(*rand_range.astype(int))
-        else:
-            waveforms = [torch.cat([waveform, torch.zeros(min(0, wanted_length-len(waveform)))]) for waveform in waveforms]
-        begin_index = np.random.randint(min_waveform_length - wanted_length + 1)
-        return [waveform[:, begin_index:begin_index+wanted_length] for waveform in waveforms], wanted_length
+    def random_length(self, max_length: int) -> int:
+        """Get random length between range given at the constructor but maximum the given max_length parameter."""
+        rand_range = np.minimum(self.audio_length_range, [max_length] * 2)
+        return np.random.randint(*rand_range)
 
     def __iter__(self):
         return self
 
     def __next__(self) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # Anchors
-        anchor_waveforms, anchor_paths = self.next_anchors()
-        anchor_waveforms, waveform_length = self.clip_audio_samples(anchor_waveforms)
-        anchors_stacked = torch.stack(anchor_waveforms)
+        anchors, anchor_paths = self.next_anchors()
+
+        # Choose random length for the positives and negatives
+        random_length = self.random_length(anchors.shape[1])
 
         # Positives
-        positives_stacked = self.augmenter(anchors_stacked, self.target_sample_rate)
+        positives = self.augmenter(clip_length(anchors, random_length).unsqueeze(1), self.target_sample_rate)[:, 0]
 
         # Negatives
-        negative_waveforms, _ = self.clip_audio_samples(self.next_negatives(anchor_paths), waveform_length)
-        negatives_stacked = torch.stack(negative_waveforms)
+        negatives = clip_length(self.next_negatives(anchor_paths), random_length)
 
         if self.spectrogram_func:
             # Shape: [1, batch_size, height, width]
-            return torch.split(
-                self.spectrogram_func(
-                    torch.stack(
-                        [anchors_stacked[:, 0], positives_stacked[:, 0], negatives_stacked[:, 0]]
-                    )
-                ), 1
-            )
+            return torch.split(self.spectrogram_func(torch.stack([anchors, positives, negatives])), 1)
         else:
-            # Shape: [batch_size, 1, waveform_length]
-            return anchors_stacked, positives_stacked, negatives_stacked
+            # Shape: [batch_size, waveform_length]
+            return anchors, positives, negatives
