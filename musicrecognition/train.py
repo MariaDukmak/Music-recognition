@@ -1,18 +1,22 @@
 from typing import Union, List
 from pathlib import Path
 import random
+import torch
 
 from musicrecognition.augmentation import get_augmenter
 from musicrecognition.audio_dataloader import AudioDataloader
 from musicrecognition.spectrogram import get_spectrogram_func
+from musicrecognition.model import LSTMNetwork
 
 random.seed(42)
+torch.manual_seed(42)
 DATA_ROOT = Path('../data')
 BATCH_SIZE = 4
 TEST_SIZE = 0.3  # 70% train 30% test
 SONG_SAMPLE_RATE = 44100  # Most songs in the dataset seem to have a sample-rate of 44100
 MIN_AUDIO_LENGTH = 10
 MAX_AUDIO_LENGTH = 30
+LATENT_SPACE_SIZE = 16
 
 
 def get_song_paths(source_path: Union[Path, str]) -> List[Path]:
@@ -41,21 +45,30 @@ def train():
                                    spectrogram_func,
                                    )
 
+    model = LSTMNetwork(128, 32, LATENT_SPACE_SIZE, 2)
+    print(model)
+
+    criterion = torch.nn.TripletMarginLoss()
+
+    # Optimizer
+    learning_rate = 0.1
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
     # Training loop
     for anchors, positives, negatives in train_loader:
-        print(anchors.shape, positives.shape, negatives.shape)
 
-        # latent_space_encoding_anchor = anchor_model(anchors)
-        # latent_space_encoding_positives = claasify_model(positives)
-        # latent_space_encoding_negatives = claasify_model(negatives)
-        #
-        # optimizer.zero_grad()
-        # loss = triplet_loss(latent_space_encoding_anchor, latent_space_encoding_positives, latent_space_encoding_negatives)
-        # loss.backward()
-        # optimizer.step()
+        optimizer.zero_grad()
 
+        latent_anchors = model(anchors)
+        latent_positives = model(positives)
+        latent_negatives = model(negatives)
 
-        # ... training code needed ...
+        loss = criterion(latent_anchors, latent_positives, latent_negatives)
+
+        loss.backward()
+        optimizer.step()
+
+        print(loss)
 
 
 if __name__ == '__main__':
