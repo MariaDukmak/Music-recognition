@@ -131,6 +131,8 @@ dmypy.json
 # data
 data/songs
 */_sample_data/
+*/runs
+*.pth
 
 # IDE
 .idea
