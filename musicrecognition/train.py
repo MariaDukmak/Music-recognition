@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 
 from musicrecognition.augmentation import get_augmenter
 from musicrecognition.spectrogram import get_spectrogram_func
-from musicrecognition.model import LSTMNetwork
+from musicrecognition.model import LSTMNetwork, SimpleNet
 from musicrecognition.audio_dataset import AudioDataset
 from musicrecognition.data_collate import create_collate_fn
 
@@ -45,15 +45,34 @@ def train():
     train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, num_workers=12, collate_fn=collate_fn)
 
     device = torch.device('cuda:1')
-    writer = SummaryWriter(comment=input("Test name: "))
+    #writer = SummaryWriter(comment=input("Test name: "))
 
-    model = LSTMNetwork(128, 64, LATENT_SPACE_SIZE, 8).to(device)
+    model = LSTMNetwork(128, 64, LATENT_SPACE_SIZE, 2).to(device)
+    # model = SimpleNet(128, LATENT_SPACE_SIZE, 10).to(device)
 
     criterion = torch.nn.TripletMarginLoss()
 
     # Optimizer
-    learning_rate = 0.01
+    learning_rate = 0.000000000000001
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+    # optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
+
+    anchors, positives, negatives = next(iter(train_loader))
+    anchors, positives, negatives = anchors.to(device), positives.to(device), negatives.to(device)
+    epoch = 0
+    while True:
+        epoch += 1
+        latent_anchors = model(anchors.transpose(1, 2))
+        latent_positives = model(positives.transpose(1, 2))
+        latent_negatives = model(negatives.transpose(1, 2))
+        loss = criterion(latent_anchors, latent_positives, latent_negatives)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        time_index = epoch * BATCH_SIZE
+        print(f"{time_index} loss {loss.item()}")
 
     # Training loop
     for epoch in range(100):
