@@ -14,7 +14,7 @@ from musicrecognition.data_collate import create_collate_fn
 random.seed(42)
 torch.manual_seed(42)
 DATA_ROOT = Path('../data')
-BATCH_SIZE = 20
+BATCH_SIZE = 2
 TEST_SIZE = 0.3  # 70% train 30% test
 SONG_SAMPLE_RATE = 44100  # Most songs in the dataset seem to have a sample-rate of 44100
 MIN_AUDIO_LENGTH = 10
@@ -75,24 +75,24 @@ def train():
         print(f"{time_index} loss {loss.item()}")
 
     # Training loop
-    for epoch in range(100):
-        for n_iter, (anchors, positives, negatives) in enumerate(train_loader):
-            anchors, positives, negatives = anchors.to(device), positives.to(device), negatives.to(device)
-
-            latent_anchors = model(anchors.transpose(1, 2))
-            latent_positives = model(positives.transpose(1, 2))
-            latent_negatives = model(negatives.transpose(1, 2))
-
-            loss = criterion(latent_anchors, latent_positives, latent_negatives)
-
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-            time_index = epoch * len(train_set) + n_iter * BATCH_SIZE
-            print(f"{time_index} loss {loss.item()}")
-            writer.add_scalar('Loss/train', loss.item(), time_index)
-        torch.save(model.state_dict(), 'model.pth')
+    # for epoch in range(100):
+    #     for n_iter, (anchors, positives, negatives) in enumerate(train_loader):
+    #         anchors, positives, negatives = anchors.to(device), positives.to(device), negatives.to(device)
+    #
+    #         latent_anchors = model(anchors.transpose(1, 2))
+    #         latent_positives = model(positives.transpose(1, 2))
+    #         latent_negatives = model(negatives.transpose(1, 2))
+    #
+    #         loss = criterion(latent_anchors, latent_positives, latent_negatives)
+    #
+    #         optimizer.zero_grad()
+    #         loss.backward()
+    #         optimizer.step()
+    #
+    #         time_index = epoch * len(train_set) + n_iter * BATCH_SIZE
+    #         print(f"{time_index} loss {loss.item()}")
+    #         writer.add_scalar('Loss/train', loss.item(), time_index)
+    #     torch.save(model.state_dict(), 'model.pth')
 
 
 if __name__ == '__main__':

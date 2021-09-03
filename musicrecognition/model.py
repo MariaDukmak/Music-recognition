@@ -35,8 +35,9 @@ class LSTMNetwork(nn.Module):
 
         self.lstm = nn.LSTM(
             input_size=input_size, hidden_size=hidden_size,
-            num_layers=num_layers, batch_first=True
+            num_layers=num_layers, batch_first=True, dropout=0.6
         )
+
         self.lin = nn.Linear(hidden_size, output_size)
 
     def forward(self, x):
@@ -45,5 +46,5 @@ class LSTMNetwork(nn.Module):
         # lstm_out: [batch, sequence, hidden_size]
         last_from_sequence = lstm_out[:, -1, :]
         # last_from_sequence: [batch, hidden_size]
-        return self.lin(last_from_sequence)
+        return self.lin(las)
         # return: [batch, output_size]
