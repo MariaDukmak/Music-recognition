@@ -14,7 +14,7 @@ from musicrecognition.data_collate import create_collate_fn
 random.seed(42)
 torch.manual_seed(42)
 DATA_ROOT = Path('../data')
-BATCH_SIZE = 2
+BATCH_SIZE = 50
 TEST_SIZE = 0.3  # 70% train 30% test
 SONG_SAMPLE_RATE = 44100  # Most songs in the dataset seem to have a sample-rate of 44100
 MIN_AUDIO_LENGTH = 10
@@ -45,54 +45,54 @@ def train():
     train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, num_workers=12, collate_fn=collate_fn)
 
     device = torch.device('cuda:1')
-    #writer = SummaryWriter(comment=input("Test name: "))
+    writer = SummaryWriter(comment=input("Test name: "))
 
     model = LSTMNetwork(128, 64, LATENT_SPACE_SIZE, 2).to(device)
-    # model = SimpleNet(128, LATENT_SPACE_SIZE, 10).to(device)
+    #model = SimpleNet(128, LATENT_SPACE_SIZE, 10).to(device)
 
     criterion = torch.nn.TripletMarginLoss()
 
     # Optimizer
-    learning_rate = 0.000000000000001
+    learning_rate = 0.05
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     # optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
 
-    anchors, positives, negatives = next(iter(train_loader))
-    anchors, positives, negatives = anchors.to(device), positives.to(device), negatives.to(device)
-    epoch = 0
-    while True:
-        epoch += 1
-        latent_anchors = model(anchors.transpose(1, 2))
-        latent_positives = model(positives.transpose(1, 2))
-        latent_negatives = model(negatives.transpose(1, 2))
-        loss = criterion(latent_anchors, latent_positives, latent_negatives)
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        time_index = epoch * BATCH_SIZE
-        print(f"{time_index} loss {loss.item()}")
+    # anchors, positives, negatives = next(iter(train_loader))
+    # anchors, positives, negatives = anchors.to(device), positives.to(device), negatives.to(device)
+    # epoch = 0
+    # while True:
+    #     epoch += 1
+    #     optimizer.zero_grad()
+    #     latent_anchors = model(anchors.transpose(1, 2))
+    #     latent_positives = model(positives.transpose(1, 2))
+    #     latent_negatives = model(negatives.transpose(1, 2))
+    #     loss = criterion(latent_anchors, latent_positives, latent_negatives)
+    #     loss.backward()
+    #     optimizer.step()
+    #
+    #     time_index = epoch * BATCH_SIZE
+    #     print(f"{time_index} loss {loss.item()}")
 
     # Training loop
-    # for epoch in range(100):
-    #     for n_iter, (anchors, positives, negatives) in enumerate(train_loader):
-    #         anchors, positives, negatives = anchors.to(device), positives.to(device), negatives.to(device)
-    #
-    #         latent_anchors = model(anchors.transpose(1, 2))
-    #         latent_positives = model(positives.transpose(1, 2))
-    #         latent_negatives = model(negatives.transpose(1, 2))
-    #
-    #         loss = criterion(latent_anchors, latent_positives, latent_negatives)
-    #
-    #         optimizer.zero_grad()
-    #         loss.backward()
-    #         optimizer.step()
-    #
-    #         time_index = epoch * len(train_set) + n_iter * BATCH_SIZE
-    #         print(f"{time_index} loss {loss.item()}")
-    #         writer.add_scalar('Loss/train', loss.item(), time_index)
-    #     torch.save(model.state_dict(), 'model.pth')
+    for epoch in range(100):
+        for n_iter, (anchors, positives, negatives) in enumerate(train_loader):
+            anchors, positives, negatives = anchors.to(device), positives.to(device), negatives.to(device)
+
+            optimizer.zero_grad()
+            latent_anchors = model(anchors.transpose(1, 2))
+            latent_positives = model(positives.transpose(1, 2))
+            latent_negatives = model(negatives.transpose(1, 2))
+
+            loss = criterion(latent_anchors, latent_positives, latent_negatives)
+
+            loss.backward()
+            optimizer.step()
+
+            time_index = epoch * len(train_set) + n_iter * BATCH_SIZE
+            print(f"{time_index} loss {loss.item()}")
+            writer.add_scalar('Loss/train', loss.item(), time_index)
+        torch.save(model.state_dict(), 'model.pth')
 
 
 if __name__ == '__main__':

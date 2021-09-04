@@ -46,5 +46,5 @@ class LSTMNetwork(nn.Module):
         # lstm_out: [batch, sequence, hidden_size]
         last_from_sequence = lstm_out[:, -1, :]
         # last_from_sequence: [batch, hidden_size]
-        return self.lin(las)
+        return self.lin(last_from_sequence)
         # return: [batch, output_size]
