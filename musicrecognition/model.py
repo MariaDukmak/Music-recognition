@@ -1,8 +1,6 @@
 import torch
 from torch import nn
 
-crit = nn.MSELoss()
-
 
 class SimpleNet(nn.Module):
     def __init__(self, input_size: int, output_size: int, fixed_length: int):
@@ -30,12 +28,13 @@ class SimpleNet(nn.Module):
 
 
 class LSTMNetwork(nn.Module):
+    # DeepLSTM
     def __init__(self, input_size: int, hidden_size: int, output_size: int, num_layers: int):
         super(LSTMNetwork, self).__init__()
 
         self.lstm = nn.LSTM(
             input_size=input_size, hidden_size=hidden_size,
-            num_layers=num_layers, batch_first=True, dropout=0.6
+            num_layers=num_layers, batch_first=True, dropout=0.2
         )
 
         self.lin = nn.Linear(hidden_size, output_size)

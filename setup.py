@@ -7,6 +7,7 @@ install_requires = [
     'numpy==1.20.0',
     'torch-audiomentations',
     'tensorboard',
+    'librosa',
 ]
 
 setup(

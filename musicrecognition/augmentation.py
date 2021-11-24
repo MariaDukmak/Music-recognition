@@ -13,11 +13,11 @@ if platform in {'linux', 'linux2', 'darwin'}:
 
 def get_augmenter(background_noise_path: Union[List[Path], List[str], Path, str]) -> Compose:
     return Compose([
-        # LowPassFilter(p=.3),
-        # HighPassFilter(p=.3),
-        # AddBackgroundNoise(background_paths=background_noise_path, p=.9),
-        # Gain(p=.5),
-        # AddColoredNoise(p=.9),
-        # LowPassFilter(p=.3),
-        # HighPassFilter(p=.3),
+        LowPassFilter(p=.3),
+        HighPassFilter(p=.3),
+        AddBackgroundNoise(background_paths=background_noise_path, p=.9),
+        Gain(p=.5),
+        AddColoredNoise(p=.9),
+        LowPassFilter(p=.3),
+        HighPassFilter(p=.3),
     ])
